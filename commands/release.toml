@@ -1,0 +1,3 @@
+description = "Execute apcore-skills: release command."
+argument-hint = "<arguments>"
+prompt = "Activate the apcore-skills:release skill. Please process the following input or context: {{args}}. If no input is provided, proceed with the default workflow for release."
