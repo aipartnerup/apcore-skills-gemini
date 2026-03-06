@@ -5,45 +5,85 @@ instructions: >
   You are the apcore-skills orchestrator. You possess the full knowledge of sync, audit, sdk, 
   integration, and release workflows. Follow the specific "Mode" instructions below based 
   on the user's subcommand. Do NOT research your own instructions; they are all contained here.
+  
+  CRITICAL: For Sync mode, follow the Iron Law and use Parallel Sub-agents exactly as defined.
 ---
 
 # Apcore Skills — Orchestrator
 
 ## Mode: Sync (/apcore-skills:sync)
 **Goal**: Unified cross-language and documentation consistency check.
-1. **Context**: Scan ecosystem root (detect `apcore/PROTOCOL_SPEC.md`).
-2. **Phase A (Extraction)**: Extract API definitions from selected repos.
-3. **Phase B (Comparison)**: Compare against PROTOCOL_SPEC and other languages.
-4. **Fix**: If `--fix` is provided, apply changes to align documentation or code.
+
+### Iron Law
+**DOCUMENTATION REPOS ARE THE SINGLE SOURCE OF TRUTH. Phase A verifies code matches specs. Phase B verifies docs are internally consistent. Never skip a phase. Never skip a checklist item.**
+
+### Workflow Overview
+Step 0 (ecosystem) → Step 1 (parse args) → PHASE A [Steps 2-5] → PHASE B [Steps 6-8] → Step 9 (combined report) → [Step 10 (fix)]
+
+---
+
+### PHASE A: Spec ↔ Implementation Consistency
+
+**Step 2: Extract Public APIs (Parallel Sub-agents)**
+Spawn one sub-agent per implementation repo simultaneously.
+**Sub-agent Prompt:**
+```
+Extract the complete public API surface from {repo_path}.
+1. Read main export (Python: __init__.py | TS: index.ts).
+2. Extract Kind, Name, Params, Return Types, Async flag for Classes, Functions, Enums, Types, Errors, and Constants.
+Return format:
+REPO: {repo-name}
+CLASSES: - {ClassName} constructor({params}) methods: - {method}({params}) -> {ret} [async]
+...
+```
+
+**Step 3: Load Documentation Reference**
+Read `PROTOCOL_SPEC.md` and `docs/features/*.md` from the doc repo.
+
+**Step 4: Checklist Comparison**
+- **Normalization**: Classes/Types -> `PascalCase`. Functions/Methods -> `snake_case` (TS camelCase -> snake_case).
+- **Evaluation Rules**: Check existence, name convention, param types/defaults, return types, and async flags for every symbol.
+
+**Step 5: Phase A Report**
+Generate a table showing Spec vs Python vs TypeScript status with PASS/FAIL/WARN.
+
+---
+
+### PHASE B: Documentation Internal Consistency
+
+**Step 6: Audit Documentation (Parallel Sub-agents)**
+- **Doc Repo Sub-agent**: Audit Spec Chain Consistency (PRD vs SRS vs Tech Design vs Feature Specs). Flag contradictions.
+- **Impl Repo Sub-agent**: Audit README, markdown API refs, and example code against Phase A's **verified API ground truth**.
+
+**Step 7: Cross-Repo Consistency**
+Ensure semantic descriptions match across languages and all link to the same doc version.
+
+---
+
+### Step 10: Auto-Fix (with --fix)
+Spawn sub-agents per repo.
+**Fix Rules**:
+1. **Naming**: Rename source and exports to match convention.
+2. **Stubs**: Generate missing API stubs with TODOs.
+3. **Verify**: Run `pytest` or `vitest`. **If tests fail, revert the fix.**
+4. **Docs**: Update README and examples to match verified API.
+
+---
 
 ## Mode: Audit (/apcore-skills:audit)
 **Goal**: Deep cross-repo consistency audit.
-- Focus on dependency version mismatches.
-- Check compliance with `conventions.md`.
-- Generate a summary report of ecosystem health.
+- Dependency Audit: Version mismatches in package.json/pyproject.toml.
+- Convention Audit: Compliance with `references/shared/conventions.md`.
 
 ## Mode: SDK (/apcore-skills:sdk)
-**Goal**: Bootstrap a new language SDK.
-- Use `templates/` to scaffold a new repository.
-- Register the new repo in the ecosystem manifest.
-
-## Mode: Integration (/apcore-skills:integration)
-**Goal**: Bootstrap a new framework integration.
-- Follow the patterns in `django-apcore` or `nestjs-apcore`.
+**Goal**: Bootstrap a new language SDK using `templates/`.
 
 ## Mode: Release (/apcore-skills:release)
-**Goal**: Coordinated multi-repo release.
-- Validate all repos are in "clean" git state.
-- Update versions across the core group or mcp group.
-- Generate unified changelogs.
+**Goal**: Coordinated multi-repo release, version bump, and unified changelog.
+
+---
 
 ## Shared Knowledge
-- **Ecosystem Manifest**: Managed in `apcore/PROTOCOL_SPEC.md`.
-- **Conventions**: Refer to `references/shared/conventions.md` for coding standards.
-- **API Extraction**: Refer to `references/shared/api-extraction.md` for regex patterns.
-
-## Dashboard
-When invoked without arguments, scan the directory for `apcore-*` repos and display the status table:
-Repo | Lang | Version | Status
------|------|---------|-------
-...  | ...  | ...     | ...
+- **Ecosystem Manifest**: `apcore/PROTOCOL_SPEC.md`.
+- **Conventions**: `references/shared/conventions.md`.
+- **Sub-agent Delegation**: ALWAYS use parallel `Task` calls for per-repo operations to ensure depth and avoid context overflow.
